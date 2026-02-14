@@ -1,14 +1,24 @@
 """
 Simple web app: judge whether to stay emotionally stable in the given intimate-relationship situation.
 Uses OpenAI API with strict Y/N output.
+Base URL: /emo
 """
 import os
 import re
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, Blueprint, request, jsonify, render_template
 from openai import OpenAI
 
 app = Flask(__name__)
 client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+# 所有路由挂载在 base url /emo 下
+emo_bp = Blueprint(
+    "emo",
+    __name__,
+    url_prefix="/emo",
+    static_folder="static",
+    static_url_path="static",
+)
 
 # Detailed English prompt, low temperature for consistent Y/N only.
 STABILITY_PROMPT = """You are an expert in intimate relationships and emotional regulation.
@@ -33,12 +43,12 @@ def normalize_answer(text: str) -> str:
     return "N"
 
 
-@app.route("/")
+@emo_bp.route("/")
 def index():
     return render_template("index.html")
 
 
-@app.route("/api/judge", methods=["POST"])
+@emo_bp.route("/api/judge", methods=["POST"])
 def judge():
     data = request.get_json() or {}
     situation = (data.get("situation") or "").strip()
@@ -65,6 +75,8 @@ def judge():
     except Exception as e:
         return jsonify({"error": str(e), "answer": None}), 500
 
+
+app.register_blueprint(emo_bp)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 13942)))
