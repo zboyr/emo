@@ -1,6 +1,7 @@
 # 部署到 shawarmai.com（SSH + rsync）
 # 请在仓库 Settings → Secrets and variables → Actions 中添加：
-#   SSH_PRIVATE_KEY - 用于 root@shawarmai.com 的 SSH 私钥（完整内容，含 -----BEGIN ... END-----）
+#   SSH_PRIVATE_KEY  - 用于 root@shawarmai.com 的 SSH 私钥（完整内容，含 -----BEGIN ... END-----）
+#   OPENAI_API_KEY   - OpenAI API 密钥
 name: Deploy to shawarmai.com
 
 on:
@@ -35,29 +36,55 @@ jobs:
             --exclude '__pycache__' \
             --exclude '*.pyc' \
             --exclude '.github' \
+            --exclude '.env' \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             ./ ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }}:${{ env.REMOTE_PATH }}/
+
+      - name: Write .env to server
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} \
+            "mkdir -p ${{ env.REMOTE_PATH }} && printf 'OPENAI_API_KEY=%s\n' '${{ secrets.OPENAI_API_KEY }}' > ${{ env.REMOTE_PATH }}/.env && chmod 600 ${{ env.REMOTE_PATH }}/.env"
 
       - name: Install deps and restart on server
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} bash -s << 'ENDSSH'
-            set -e
-            export DEBIAN_FRONTEND=noninteractive
-            export NEEDRESTART_MODE=a
-            cd /var/www/stable_emo
-            apt-get update -qq
-            apt-get install -y python3.12-venv || apt-get install -y python3-venv
-            rm -rf .venv
-            python3 -m venv .venv
-            .venv/bin/pip install -r requirements.txt -q
-            set +e
-            pkill -f 'gunicorn.*app:app' 2>/dev/null
-            set -e
-            sleep 1
-            nohup .venv/bin/gunicorn -w 1 -b 0.0.0.0:13942 app:app >> /tmp/stable_emo.log 2>&1 &
-            sleep 2
-            echo "Deploy completed successfully"
+            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} bash << 'ENDSSH'
+          set -e
+          export DEBIAN_FRONTEND=noninteractive
+          export NEEDRESTART_MODE=a
+
+          cd /var/www/stable_emo
+          apt-get update -qq
+          apt-get install -y python3.12-venv || apt-get install -y python3-venv
+          rm -rf .venv
+          python3 -m venv .venv
+          .venv/bin/pip install -r requirements.txt -q
+
+          # 创建 systemd service 文件
+          printf '%s\n' \
+            '[Unit]' \
+            'Description=Stable Emo Gunicorn App' \
+            'After=network.target' \
+            '' \
+            '[Service]' \
+            'Type=simple' \
+            'WorkingDirectory=/var/www/stable_emo' \
+            'ExecStart=/var/www/stable_emo/.venv/bin/gunicorn -w 1 -b 0.0.0.0:13942 app:app' \
+            'Restart=always' \
+            'RestartSec=3' \
+            'EnvironmentFile=-/var/www/stable_emo/.env' \
+            '' \
+            '[Install]' \
+            'WantedBy=multi-user.target' \
+            > /etc/systemd/system/stable_emo.service
+
+          systemctl daemon-reload
+          systemctl enable stable_emo
+          systemctl restart stable_emo
+          sleep 2
+          systemctl is-active stable_emo
+          echo "Deploy completed successfully"
           ENDSSH
 
       - name: Deploy done
