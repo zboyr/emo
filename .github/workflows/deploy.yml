@@ -32,21 +32,27 @@ jobs:
       - name: Stop old instance (if any)
         run: |
           pkill -f "gunicorn.*app:app" || true
-          sleep 1
+          sleep 2
 
-      - name: Start app (gunicorn, background)
+      - name: Start app (gunicorn, detached from job)
         run: |
-          nohup gunicorn \
+          cd $GITHUB_WORKSPACE
+          setsid nohup gunicorn \
             --bind 0.0.0.0:${PORT} \
             --workers 2 \
             --timeout 120 \
             --access-logfile gunicorn-access.log \
             --error-logfile gunicorn-error.log \
-            --daemon \
-            app:app
+            --pid gunicorn.pid \
+            app:app \
+            >> gunicorn.log 2>&1 &
+          disown
+          sleep 2
+          if [ -f gunicorn.pid ]; then
+            echo "Gunicorn PID: $(cat gunicorn.pid)"
+          fi
 
       - name: Health check
         run: |
-          sleep 2
-          curl -sf http://localhost:${PORT}/ > /dev/null
+          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "Response:"; curl -v http://localhost:${PORT}/ 2>&1; echo "Process on port:"; lsof -i :${PORT} || true; echo "Log tail:"; tail -30 gunicorn.log 2>/dev/null || true; exit 1)
           echo "✅ Site is up on port ${PORT}"
