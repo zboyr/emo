@@ -27,7 +27,8 @@ jobs:
 
       - name: Deploy to fixed directory
         run: |
-          DEPLOY_DIR="$HOME/emo"
+          [ -z "$HOME" ] && HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
+          DEPLOY_DIR="${HOME}/emo"
           mkdir -p "$DEPLOY_DIR"
           cp -r "$GITHUB_WORKSPACE"/. "$DEPLOY_DIR/"
           cd "$DEPLOY_DIR"
@@ -36,10 +37,11 @@ jobs:
           .venv/bin/pip install -r requirements.txt
           echo "OPENAI_API_KEY=$OPENAI_API_KEY" > emo.env
           echo "PORT=$PORT" >> emo.env
+          echo "$DEPLOY_DIR" > "$GITHUB_WORKSPACE/.deploy_dir"
 
       - name: Install and start systemd system service
         run: |
-          DEPLOY_DIR="$HOME/emo"
+          DEPLOY_DIR=$(cat "$GITHUB_WORKSPACE/.deploy_dir")
           sed -e "s|__DEPLOY_DIR__|$DEPLOY_DIR|g" -e "s|__RUNNER_USER__|$USER|g" \
             "$GITHUB_WORKSPACE/deploy/emo.service" | sudo tee /etc/systemd/system/emo.service > /dev/null
           sudo systemctl daemon-reload
