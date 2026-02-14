@@ -61,13 +61,14 @@ def judge():
 
     try:
         response = client.chat.completions.create(
-            model="gpt-5-mini",
+            model="gpt-4.1-mini",
             messages=[
                 {"role": "system", "content": STABILITY_PROMPT},
                 {"role": "user", "content": situation},
             ],
-            temperature=0.1,
+            temperature=0,
             max_completion_tokens=5,
+            seed=42,
         )
         raw = (response.choices[0].message.content or "").strip()
         answer = normalize_answer(raw)
