@@ -28,15 +28,18 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run app in background
+      - name: Start app (gunicorn, background)
         run: |
-          nohup python app.py > app.log 2>&1 &
-          echo "App started (PID: $!)"
+          nohup gunicorn \
+            --bind 0.0.0.0:${PORT} \
+            --workers 2 \
+            --timeout 120 \
+            app:app \
+            > gunicorn.log 2>&1 &
+          echo "PID=$!"
           sleep 2
-          curl -sf http://localhost:13942 > /dev/null && echo "✅ App is running on port 13942" || echo "❌ App failed to start"
-        env:
-          FLASK_ENV: production
 
-      - name: Show app log
-        if: always()
-        run: cat app.log || true
+      - name: Health check
+        run: |
+          curl -sf http://localhost:${PORT}/ > /dev/null
+          echo "✅ Site is up on port ${PORT}"
