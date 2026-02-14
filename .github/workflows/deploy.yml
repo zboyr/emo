@@ -1,6 +1,7 @@
-# 在 GitHub Runner 上直接部署并运行本站点
+# 在自托管 Runner 上部署并运行本站点
 # 需在仓库 Settings → Secrets and variables → Actions 中添加 OPENAI_API_KEY
-name: Deploy on Runner
+# 需在你的服务器上注册 self-hosted runner 并打上 label: self-hosted
+name: Deploy on Self-Hosted Runner
 
 on:
   push:
@@ -9,7 +10,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PORT: "13942"
@@ -28,18 +29,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Stop old instance (if any)
+        run: |
+          pkill -f "gunicorn.*app:app" || true
+          sleep 1
+
       - name: Start app (gunicorn, background)
         run: |
           nohup gunicorn \
             --bind 0.0.0.0:${PORT} \
             --workers 2 \
             --timeout 120 \
-            app:app \
-            > gunicorn.log 2>&1 &
-          echo "PID=$!"
-          sleep 2
+            --access-logfile gunicorn-access.log \
+            --error-logfile gunicorn-error.log \
+            --daemon \
+            app:app
 
       - name: Health check
         run: |
+          sleep 2
           curl -sf http://localhost:${PORT}/ > /dev/null
           echo "✅ Site is up on port ${PORT}"
