@@ -9,7 +9,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       PORT: "13942"
@@ -28,11 +28,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run app on runner (background)
+      - name: Run app in background
         run: |
-          python app.py &
-          sleep 5
-          curl -sf http://localhost:13942/ -o /dev/null || exit 1
-          echo "App is running in background on port 13942."
+          nohup python app.py > app.log 2>&1 &
+          echo "App started (PID: $!)"
+          sleep 2
+          curl -sf http://localhost:13942 > /dev/null && echo "✅ App is running on port 13942" || echo "❌ App failed to start"
         env:
           FLASK_ENV: production
+
+      - name: Show app log
+        if: always()
+        run: cat app.log || true
