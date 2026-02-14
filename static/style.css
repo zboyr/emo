@@ -1,0 +1,149 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  --bg: #0f0f12;
+  --surface: #1a1a20;
+  --border: #2d2d36;
+  --text: #e8e8ed;
+  --muted: #8888a0;
+  --accent: #6b7fff;
+  --accent-hover: #7d8cff;
+  --y-color: #4ade80;
+  --n-color: #f87171;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: clamp(16px, 4vw, 32px);
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+h1 {
+  font-size: clamp(1.35rem, 4vw, 1.6rem);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  resize: vertical;
+  margin-bottom: 1rem;
+}
+
+textarea::placeholder {
+  color: var(--muted);
+}
+
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(107, 127, 255, 0.2);
+}
+
+button {
+  width: 100%;
+  padding: 0.85rem 1.25rem;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.result-card .result-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0 0 0.35rem;
+}
+
+.result-card .answer {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+#answer[data-a="Y"] {
+  color: var(--y-color);
+}
+
+#answer[data-a="N"] {
+  color: var(--n-color);
+}
+
+.error-card {
+  border-color: var(--n-color);
+  color: var(--n-color);
+}
+
+.error-card p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* Mobile: touch-friendly, full-width */
+@media (max-width: 480px) {
+  .container {
+    padding: 16px;
+  }
+  textarea {
+    min-height: 120px;
+  }
+}

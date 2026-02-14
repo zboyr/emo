@@ -1,0 +1,35 @@
+# 在 GitHub Runner 上直接部署并运行本站点
+# 需在仓库 Settings → Secrets and variables → Actions 中添加 OPENAI_API_KEY
+name: Deploy on Runner
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      PORT: "13942"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run app on runner
+        run: |
+          python app.py
+        env:
+          FLASK_ENV: production

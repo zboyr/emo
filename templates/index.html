@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>亲密关系 · 是否应保持情绪稳定</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>亲密关系 · 情绪稳定判断</h1>
+      <p class="subtitle">输入一个情形，AI 判断在此情形下是否应保持情绪稳定（Y=是，N=否）</p>
+    </header>
+
+    <main>
+      <form id="form" class="card">
+        <label for="situation">描述情形（例如：伴侣忘记纪念日 / 对方在争吵时翻旧账）</label>
+        <textarea id="situation" name="situation" rows="4" placeholder="在此输入亲密关系中的具体情形…" required></textarea>
+        <button type="submit" id="submitBtn">判断</button>
+      </form>
+
+      <div id="result" class="card result-card" aria-live="polite" hidden>
+        <p class="result-label">是否应保持情绪稳定</p>
+        <p id="answer" class="answer"></p>
+      </div>
+
+      <div id="error" class="card error-card" aria-live="assertive" hidden>
+        <p id="errorMsg"></p>
+      </div>
+    </main>
+  </div>
+  <script>
+    const form = document.getElementById('form');
+    const situation = document.getElementById('situation');
+    const submitBtn = document.getElementById('submitBtn');
+    const resultCard = document.getElementById('result');
+    const answerEl = document.getElementById('answer');
+    const errorCard = document.getElementById('error');
+    const errorMsg = document.getElementById('errorMsg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = situation.value.trim();
+      if (!text) return;
+
+      submitBtn.disabled = true;
+      resultCard.hidden = true;
+      errorCard.hidden = true;
+
+      try {
+        const res = await fetch('/api/judge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ situation: text })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorMsg.textContent = data.error || '请求失败';
+          errorCard.hidden = false;
+          return;
+        }
+
+        answerEl.textContent = data.answer === 'Y' ? 'Y（是，应保持情绪稳定）' : 'N（否，不必强求稳定）';
+        answerEl.setAttribute('data-a', data.answer);
+        resultCard.hidden = false;
+      } catch (err) {
+        errorMsg.textContent = '网络错误：' + err.message;
+        errorCard.hidden = false;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
