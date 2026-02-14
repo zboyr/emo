@@ -43,7 +43,7 @@ jobs:
           REMOTE_PATH: ${{ env.REMOTE_PATH }}
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} "cd ${{ env.REMOTE_PATH }} && \
+            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} "export DEBIAN_FRONTEND=noninteractive && export NEEDRESTART_MODE=a && cd ${{ env.REMOTE_PATH }} && \
             apt-get update -qq && (apt-get install -y python3.12-venv || apt-get install -y python3-venv) && \
             rm -rf .venv && python3 -m venv .venv && \
             .venv/bin/pip install -r requirements.txt -q && \
