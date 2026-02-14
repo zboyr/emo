@@ -44,7 +44,8 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} "cd ${{ env.REMOTE_PATH }} && \
-            python3 -m venv .venv 2>/dev/null || true && \
+            apt-get update -qq && (apt-get install -y python3.12-venv || apt-get install -y python3-venv) && \
+            rm -rf .venv && python3 -m venv .venv && \
             .venv/bin/pip install -r requirements.txt -q && \
             pkill -f 'gunicorn.*app:app' 2>/dev/null || true; \
             nohup .venv/bin/gunicorn -w 1 -b 0.0.0.0:13942 app:app >> /tmp/stable_emo.log 2>&1 &"
