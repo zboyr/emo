@@ -1,0 +1,15 @@
+[Unit]
+Description=Emo intimate-relationship stability app
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=__DEPLOY_DIR__
+EnvironmentFile=__DEPLOY_DIR__/emo.env
+ExecStart=/bin/sh -c 'exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 --access-logfile - --error-logfile - app:app'
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

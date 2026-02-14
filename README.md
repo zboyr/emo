@@ -17,13 +17,22 @@ python app.py
 
 浏览器打开 http://localhost:5000
 
-## 在 Runner 上部署（GitHub Actions）
+## 在自托管 Runner 上部署（GitHub Actions + systemd）
 
-1. 把本仓库推送到 GitHub（可先 `git init` 并添加远程）。
-2. 在仓库 **Settings → Secrets and variables → Actions** 里新增 Secret：
-   - Name: `OPENAI_API_KEY`
-   - Value: 你的 OpenAI API Key（不要提交到代码里）。
-3. 推送 `main` 或 `master` 分支，或在该仓库 **Actions** 里手动运行 **Deploy on Runner**。
-4. 工作流会在 Runner 上安装依赖并执行 `python app.py`，应用在本次任务期间会一直运行（任务默认最长约 6 小时）。
+1. 在服务器上注册 **self-hosted runner**（label: `self-hosted`），把本仓库推送到 GitHub。
+2. 在仓库 **Settings → Secrets and variables → Actions** 里新增 Secret：`OPENAI_API_KEY`。
+3. 推送 `main` / `master` 或在 **Actions** 里手动运行 **Deploy on Self-Hosted Runner**。
+4. 工作流会把应用部署到 **`$HOME/emo`**，并用 **systemd 用户服务** 常驻运行（端口 13942）。
 
-注意：GitHub 提供的 Runner 通常无法从外网直接访问；若需要公网可访问，请使用自托管 Runner 或部署到云主机/容器。
+**保证服务在无登录时也运行**（在部署用的那台机上执行一次）：
+
+```bash
+loginctl enable-linger $(whoami)
+```
+
+查看/重启服务：
+
+```bash
+systemctl --user status emo
+systemctl --user restart emo
+```

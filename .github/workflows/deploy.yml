@@ -1,6 +1,7 @@
-# 在自托管 Runner 上部署并运行本站点
+# 在自托管 Runner 上通过 systemd 部署并常驻运行
 # 需在仓库 Settings → Secrets and variables → Actions 中添加 OPENAI_API_KEY
-# 需在你的服务器上注册 self-hosted runner 并打上 label: self-hosted
+# 需在服务器上注册 self-hosted runner (label: self-hosted)
+# 首次部署后建议在服务器执行一次: loginctl enable-linger $(whoami) 以便用户服务在无登录时也保持运行
 name: Deploy on Self-Hosted Runner
 
 on:
@@ -24,35 +25,29 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Deploy to fixed directory
         run: |
+          DEPLOY_DIR="$HOME/emo"
+          mkdir -p "$DEPLOY_DIR"
+          cp -r "$GITHUB_WORKSPACE"/. "$DEPLOY_DIR/"
+          cd "$DEPLOY_DIR"
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          echo "OPENAI_API_KEY=$OPENAI_API_KEY" > emo.env
+          echo "PORT=$PORT" >> emo.env
 
-      - name: Stop old instance (if any)
+      - name: Install and start systemd user service
         run: |
-          pkill -f "gunicorn.*app:app" || true
-          sleep 2
-
-      - name: Start app (gunicorn, detached from job)
-        run: |
-          cd $GITHUB_WORKSPACE
-          setsid nohup gunicorn \
-            --bind 0.0.0.0:${PORT} \
-            --workers 2 \
-            --timeout 120 \
-            --access-logfile gunicorn-access.log \
-            --error-logfile gunicorn-error.log \
-            --pid gunicorn.pid \
-            app:app \
-            >> gunicorn.log 2>&1 &
-          disown
-          sleep 2
-          if [ -f gunicorn.pid ]; then
-            echo "Gunicorn PID: $(cat gunicorn.pid)"
-          fi
+          DEPLOY_DIR="$HOME/emo"
+          mkdir -p ~/.config/systemd/user
+          sed "s|__DEPLOY_DIR__|$DEPLOY_DIR|g" "$GITHUB_WORKSPACE/deploy/emo.service" > ~/.config/systemd/user/emo.service
+          loginctl enable-linger "$USER" 2>/dev/null || true
+          systemctl --user daemon-reload
+          systemctl --user enable emo
+          systemctl --user restart emo
 
       - name: Health check
         run: |
-          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "Response:"; curl -v http://localhost:${PORT}/ 2>&1; echo "Process on port:"; lsof -i :${PORT} || true; echo "Log tail:"; tail -30 gunicorn.log 2>/dev/null || true; exit 1)
+          sleep 3
+          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "--- service status ---"; systemctl --user status emo --no-pager; exit 1)
           echo "✅ Site is up on port ${PORT}"
