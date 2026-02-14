@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=__RUNNER_USER__
 WorkingDirectory=__DEPLOY_DIR__
 EnvironmentFile=__DEPLOY_DIR__/emo.env
 ExecStart=/bin/sh -c 'exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 --access-logfile - --error-logfile - app:app'
@@ -12,4 +13,4 @@ Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

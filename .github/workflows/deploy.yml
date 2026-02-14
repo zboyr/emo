@@ -1,7 +1,7 @@
-# 在自托管 Runner 上通过 systemd 部署并常驻运行
+# 在自托管 Runner 上通过 systemd 系统服务部署并常驻运行
 # 需在仓库 Settings → Secrets and variables → Actions 中添加 OPENAI_API_KEY
 # 需在服务器上注册 self-hosted runner (label: self-hosted)
-# 首次部署后建议在服务器执行一次: loginctl enable-linger $(whoami) 以便用户服务在无登录时也保持运行
+# Runner 用户需具备无密码 sudo，用于安装/重启 systemd 服务
 name: Deploy on Self-Hosted Runner
 
 on:
@@ -36,18 +36,17 @@ jobs:
           echo "OPENAI_API_KEY=$OPENAI_API_KEY" > emo.env
           echo "PORT=$PORT" >> emo.env
 
-      - name: Install and start systemd user service
+      - name: Install and start systemd system service
         run: |
           DEPLOY_DIR="$HOME/emo"
-          mkdir -p ~/.config/systemd/user
-          sed "s|__DEPLOY_DIR__|$DEPLOY_DIR|g" "$GITHUB_WORKSPACE/deploy/emo.service" > ~/.config/systemd/user/emo.service
-          loginctl enable-linger "$USER" 2>/dev/null || true
-          systemctl --user daemon-reload
-          systemctl --user enable emo
-          systemctl --user restart emo
+          sed -e "s|__DEPLOY_DIR__|$DEPLOY_DIR|g" -e "s|__RUNNER_USER__|$USER|g" \
+            "$GITHUB_WORKSPACE/deploy/emo.service" | sudo tee /etc/systemd/system/emo.service > /dev/null
+          sudo systemctl daemon-reload
+          sudo systemctl enable emo
+          sudo systemctl restart emo
 
       - name: Health check
         run: |
           sleep 3
-          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "--- service status ---"; systemctl --user status emo --no-pager; exit 1)
+          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "--- service status ---"; sudo systemctl status emo --no-pager; exit 1)
           echo "✅ Site is up on port ${PORT}"
