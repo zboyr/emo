@@ -31,8 +31,9 @@ jobs:
           mkdir -p "$DEPLOY_DIR"
           cp -r "$GITHUB_WORKSPACE"/. "$DEPLOY_DIR/"
           cd "$DEPLOY_DIR"
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
           echo "OPENAI_API_KEY=$OPENAI_API_KEY" > emo.env
           echo "PORT=$PORT" >> emo.env
 

@@ -8,7 +8,7 @@ Type=simple
 User=__RUNNER_USER__
 WorkingDirectory=__DEPLOY_DIR__
 EnvironmentFile=__DEPLOY_DIR__/emo.env
-ExecStart=/bin/sh -c 'exec gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 --access-logfile - --error-logfile - app:app'
+ExecStart=__DEPLOY_DIR__/.venv/bin/gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 --access-logfile - --error-logfile - app:app
 Restart=always
 RestartSec=5
 
