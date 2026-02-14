@@ -1,55 +1,52 @@
-# 在自托管 Runner 上通过 systemd 系统服务部署并常驻运行
-# 需在仓库 Settings → Secrets and variables → Actions 中添加 OPENAI_API_KEY
-# 需在服务器上注册 self-hosted runner (label: self-hosted)
-# Runner 用户需具备无密码 sudo，用于安装/重启 systemd 服务
-name: Deploy on Self-Hosted Runner
+# 部署到 shawarmai.com（SSH + rsync）
+# 请在仓库 Settings → Secrets and variables → Actions 中添加：
+#   SSH_PRIVATE_KEY - 用于 root@shawarmai.com 的 SSH 私钥（完整内容，含 -----BEGIN ... END-----）
+name: Deploy to shawarmai.com
 
 on:
   push:
-    branches: [main, master]
+    branches: [main]
   workflow_dispatch:
+
+env:
+  REMOTE_HOST: shawarmai.com
+  REMOTE_USER: root
+  REMOTE_PATH: /var/www/stable_emo
 
 jobs:
   deploy:
-    runs-on: self-hosted
-    env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      PORT: "13942"
-
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Deploy to fixed directory
+      - name: Setup SSH key
         run: |
-          [ -z "$HOME" ] && HOME=$(getent passwd "$(whoami)" | cut -d: -f6)
-          DEPLOY_DIR="${HOME}/emo"
-          mkdir -p "$DEPLOY_DIR"
-          cp -r "$GITHUB_WORKSPACE"/. "$DEPLOY_DIR/"
-          cd "$DEPLOY_DIR"
-          python -m venv .venv
-          .venv/bin/pip install --upgrade pip
-          .venv/bin/pip install -r requirements.txt
-          echo "OPENAI_API_KEY=$OPENAI_API_KEY" > emo.env
-          echo "PORT=$PORT" >> emo.env
-          echo "$DEPLOY_DIR" > "$GITHUB_WORKSPACE/.deploy_dir"
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ env.REMOTE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Install and start systemd system service
+      - name: Rsync to server
         run: |
-          DEPLOY_DIR=$(cat "$GITHUB_WORKSPACE/.deploy_dir")
-          sed -e "s|__DEPLOY_DIR__|$DEPLOY_DIR|g" -e "s|__RUNNER_USER__|$USER|g" \
-            "$GITHUB_WORKSPACE/deploy/emo.service" | sudo tee /etc/systemd/system/emo.service > /dev/null
-          sudo systemctl daemon-reload
-          sudo systemctl enable emo
-          sudo systemctl restart emo
+          rsync -avz --delete \
+            --exclude '.git' \
+            --exclude '.venv' \
+            --exclude '__pycache__' \
+            --exclude '*.pyc' \
+            --exclude '.github' \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            ./ ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }}:${{ env.REMOTE_PATH }}/
 
-      - name: Health check
+      - name: Install deps and restart on server
+        env:
+          REMOTE_PATH: ${{ env.REMOTE_PATH }}
         run: |
-          sleep 3
-          curl -sf http://localhost:${PORT}/ > /dev/null || (echo "--- service status ---"; sudo systemctl status emo --no-pager; exit 1)
-          echo "✅ Site is up on port ${PORT}"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }} "cd ${{ env.REMOTE_PATH }} && \
+            (python3 -m pip install --user -r requirements.txt -q 2>/dev/null || pip3 install -r requirements.txt -q) && \
+            pkill -f 'gunicorn.*app:app' 2>/dev/null || true; \
+            nohup gunicorn -w 1 -b 0.0.0.0:13942 app:app >> /tmp/stable_emo.log 2>&1 &"
+
+      - name: Deploy done
+        run: echo "Deployed to ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }}:${{ env.REMOTE_PATH }}"
