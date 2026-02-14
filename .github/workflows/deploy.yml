@@ -28,8 +28,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run app on runner
+      - name: Run app on runner (background)
         run: |
-          python app.py
+          python app.py &
+          sleep 5
+          curl -sf http://localhost:13942/ -o /dev/null || exit 1
+          echo "App is running in background on port 13942."
         env:
           FLASK_ENV: production
