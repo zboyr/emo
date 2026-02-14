@@ -48,7 +48,8 @@ jobs:
             rm -rf .venv && python3 -m venv .venv && \
             .venv/bin/pip install -r requirements.txt -q && \
             pkill -f 'gunicorn.*app:app' 2>/dev/null || true; \
-            nohup .venv/bin/gunicorn -w 1 -b 0.0.0.0:13942 app:app >> /tmp/stable_emo.log 2>&1 &"
+            nohup .venv/bin/gunicorn -w 1 -b 0.0.0.0:13942 app:app >> /tmp/stable_emo.log 2>&1 & \
+            sleep 1; exit 0"
 
       - name: Deploy done
         run: echo "Deployed to ${{ env.REMOTE_USER }}@${{ env.REMOTE_HOST }}:${{ env.REMOTE_PATH }}"
